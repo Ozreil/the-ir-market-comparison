@@ -111,7 +111,7 @@ function getApiBaseUrl() {
   }
 
   if (process.env.NODE_ENV === "production") {
-    return "http://localhost:8080";
+    return "http://localhost";
   }
 
   return "https://theirmarkets.com/api";
