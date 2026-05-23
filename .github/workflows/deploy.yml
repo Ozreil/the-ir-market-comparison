@@ -1,4 +1,4 @@
-name: Deploy Frontend_new to EC2
+name: Deploy Frontend_new to EC2 # image name in ecr called frontend_new
 
 on:
   push:
