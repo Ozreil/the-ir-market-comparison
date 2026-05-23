@@ -87,11 +87,60 @@ export async function getProductComparisonById(
   config?: AxiosRequestConfig,
 ) {
   const path = `/pages/${getComparisonApiId(comparisonId)}`;
-  const response = await apiClient.get<ProductComparisonDto>(path, config);
 
-  console.log("[getProductComparisonById] response", JSON.stringify(response.data));
+  console.log("[getProductComparisonById] request", {
+    baseURL: apiClient.defaults.baseURL,
+    comparisonId,
+    path,
+  });
 
-  return response.data;
+  try {
+    const response = await apiClient.get<ProductComparisonDto>(path, config);
+
+    console.log("[getProductComparisonById] response", {
+      data: response.data,
+      headers: response.headers,
+      status: response.status,
+      statusText: response.statusText,
+      url: response.config.url,
+      path: path,
+    });
+
+    return response.data;
+  } catch (error) {
+    if (axios.isAxiosError(error)) {
+      console.error("[getProductComparisonById] error", {
+        code: error.code,
+        config: {
+          baseURL: error.config?.baseURL,
+          headers: error.config?.headers,
+          method: error.config?.method,
+          params: error.config?.params,
+          timeout: error.config?.timeout,
+          url: error.config?.url,
+          path: path,
+        },
+        message: error.message,
+        name: error.name,
+        response: error.response
+          ? {
+              data: error.response.data,
+              headers: error.response.headers,
+              status: error.response.status,
+              statusText: error.response.statusText,
+              path: path,
+            }
+          : null,
+        stack: error.stack,
+        toJSON: error.toJSON(),
+      });
+
+      throw error;
+    }
+
+    console.error("[getProductComparisonById] non-Axios error", error);
+    throw error;
+  }
 }
 
 function getComparisonApiId(comparisonId: number | string) {
@@ -119,8 +168,4 @@ function getApiBaseUrl() {
   // }
 
   return "http://localhost/api";
-}
-
-function isBrowser() {
-  return typeof window !== "undefined";
 }
