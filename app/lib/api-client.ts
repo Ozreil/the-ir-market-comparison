@@ -103,7 +103,8 @@ function getComparisonApiId(comparisonId: number | string) {
 
 function getApiBaseUrl() {
   if (isBrowser()) {
-    return process.env.NEXT_PUBLIC_API_BASE_URL ?? "/api";
+    return "http://localhost/api";
+    // return process.env.NEXT_PUBLIC_API_BASE_URL ?? "/api";
   }
 
   if (process.env.API_BASE_URL) {
@@ -111,7 +112,8 @@ function getApiBaseUrl() {
   }
 
   if (process.env.NODE_ENV === "production") {
-    return "http://localhost";
+    return "http://localhost/api";
+    // return "http://localhost:8080";
   }
 
   return "https://theirmarkets.com/api";
