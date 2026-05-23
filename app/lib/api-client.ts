@@ -167,5 +167,5 @@ function getApiBaseUrl() {
   //   // return "http://localhost:8080";
   // }
 
-  return "http://backend:8080/api";
+  return "http://nginx/api";
 }
