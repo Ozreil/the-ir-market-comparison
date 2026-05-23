@@ -250,7 +250,7 @@ function ComparisonProductPanel({
               {...amazonLinkAttributes}
               className="inline-flex min-h-12 w-full items-center justify-center bg-gold px-5 text-xs font-bold uppercase tracking-[0.2em] text-[#121212] transition hover:bg-[#121212] hover:text-white"
             >
-              View product
+              Buy on Amazon
             </a>
           </div>
         </div>
