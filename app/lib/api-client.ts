@@ -86,12 +86,19 @@ export async function getProductComparisonById(
   comparisonId: number | string,
   config?: AxiosRequestConfig,
 ) {
-  const path = `/pages/${comparisonId}`;
+  const path = `/pages/${getComparisonApiId(comparisonId)}`;
   const response = await apiClient.get<ProductComparisonDto>(path, config);
 
   console.log("[getProductComparisonById] response", JSON.stringify(response.data));
 
   return response.data;
+}
+
+function getComparisonApiId(comparisonId: number | string) {
+  const value = String(comparisonId);
+  const leadingNumericId = value.match(/^\d+/)?.[0];
+
+  return leadingNumericId ?? value;
 }
 
 function getApiBaseUrl() {

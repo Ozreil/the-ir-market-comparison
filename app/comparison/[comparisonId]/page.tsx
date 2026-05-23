@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import axios from "axios";
-import { notFound } from "next/navigation";
+import { notFound, permanentRedirect } from "next/navigation";
 import { AmazonProductImage } from "../../components/AmazonProductImage";
 import { AmazonProductTitle } from "../../components/AmazonProductTitle";
 import { Footer } from "../../components/Footer";
@@ -23,6 +23,11 @@ export const dynamic = "force-dynamic";
 
 type ComparisonData = {
   id: number | string;
+  canonicalPath: string;
+  keywords: string[];
+  seoDescription: string;
+  seoTitle: string;
+  slug?: string;
   title: string;
   summary?: string | null;
   products: [Product, Product];
@@ -51,37 +56,24 @@ export async function generateMetadata({
   }
 
   const [leftProduct, rightProduct] = comparison.products;
-  const title = comparison.title;
-  const description = getComparisonDescription(comparison);
+  const title = comparison.seoTitle;
+  const description = comparison.seoDescription;
   const ogDescription = truncate(description, 200);
-  const comparisonUrl = absoluteUrl(`/comparison/${comparisonId}`);
+  const comparisonUrl = absoluteUrl(comparison.canonicalPath);
   const imageProduct = comparison.products.find((product) => product.image);
   const imageUrl = imageProduct?.image
     ? imageProduct.image.startsWith("http")
       ? imageProduct.image
       : absoluteUrl(imageProduct.image)
     : absoluteUrl("/full-logo.jpeg");
-  const keywords = [
-    leftProduct.name,
-    rightProduct.name,
-    leftProduct.brand,
-    rightProduct.brand,
-    leftProduct.category,
-    rightProduct.category,
-    "product comparison",
-    "price comparison",
-    "review comparison",
-  ].filter((keyword, index, values): keyword is string => {
-    return Boolean(keyword) && values.indexOf(keyword) === index;
-  });
 
   return {
     title,
     description,
     alternates: {
-      canonical: `/comparison/${comparisonId}`,
+      canonical: comparison.canonicalPath,
     },
-    keywords,
+    keywords: comparison.keywords,
     openGraph: {
       description: ogDescription,
       images: [
@@ -116,11 +108,13 @@ export default async function ComparisonPage({
     notFound();
   }
 
-  console.log("comparison ", comparison)
+  if (comparison.slug && comparisonId !== comparison.slug) {
+    permanentRedirect(comparison.canonicalPath);
+  }
 
   const [leftProduct, rightProduct] = comparison.products;
   const rows = buildAttributeRows(leftProduct, rightProduct);
-  const description = getComparisonDescription(comparison);
+  const description = comparison.seoDescription;
 
   return (
     <main className="min-h-screen bg-[#f9f9f9] text-[#121212]">
@@ -129,7 +123,7 @@ export default async function ComparisonPage({
           description,
           products: comparison.products,
           title: comparison.title,
-          url: absoluteUrl(`/comparison/${comparisonId}`),
+          url: absoluteUrl(comparison.canonicalPath),
         })}
       />
       <TopNavBar />
@@ -194,8 +188,6 @@ function ComparisonProductPanel({
   product: Product;
   sideLabel: string;
 }) {
-
-  console.log("product ", product );
   return (
     <article className="border border-black/10 bg-white">
       <div className="grid min-h-full gap-0 md:grid-cols-[0.9fr_1fr]">
@@ -301,14 +293,6 @@ function AttributeCell({
   );
 }
 
-function getComparisonDescription(comparison: ComparisonData) {
-  return truncate(
-    comparison.summary ??
-      `Compare ${comparison.products[0].name} and ${comparison.products[1].name} side by side by price, reviews, rating, and product details.`,
-    156,
-  );
-}
-
 function truncate(value: string, maxLength: number) {
   return value.length > maxLength
     ? `${value.slice(0, maxLength - 1).trim()}...`
@@ -361,16 +345,86 @@ function normalizeComparison(
   const displayProducts = products
     .slice(0, 2)
     .map(productDtoToDisplayProduct) as [Product, Product];
+  const [leftProduct] = products;
+  const [leftDisplayProduct, rightDisplayProduct] = displayProducts;
+  const title =
+    comparison.title ??
+    `${leftDisplayProduct.name} vs. ${rightDisplayProduct.name}`;
+  const seoTitle = `${getProductSeoTitle(leftProduct, leftDisplayProduct)} vs. ${getProductSeoTitle(products[1], rightDisplayProduct)}`;
+  const seoDescription = getSeoDescription({
+    comparison,
+    leftProduct,
+    products: displayProducts,
+  });
+  const slug = comparison.slug ?? (isPreview ? String(comparison.id) : buildComparisonSlug(comparison.id, title));
 
   return {
+    canonicalPath: `/comparison/${slug}`,
     id: comparison.id,
     isPreview,
+    keywords: getSeoKeywords(products, displayProducts),
     products: displayProducts,
-    summary: comparison.summary,
-    title:
-      comparison.title ??
-      `${displayProducts[0].name} vs. ${displayProducts[1].name}`,
+    seoDescription,
+    seoTitle,
+    slug,
+    summary: comparison.summary ?? seoDescription,
+    title,
   };
+}
+
+function getProductSeoTitle(rawProduct: ProductDto, product: Product) {
+  return (
+    rawProduct.seo_metadata?.og_title ??
+    rawProduct.seo_metadata?.meta_title ??
+    product.name
+  );
+}
+
+function getSeoDescription({
+  comparison,
+  leftProduct,
+  products,
+}: {
+  comparison: ProductComparisonDto;
+  leftProduct: ProductDto;
+  products: [Product, Product];
+}) {
+  return truncate(
+    comparison.summary ??
+      `Compare ${products[0].name} and ${products[1].name}. ${
+        leftProduct.seo_metadata?.meta_description ??
+        leftProduct.seo_metadata?.og_description ??
+        "Review pricing, ratings, reviews, and buying details for both products."
+      }`,
+    156,
+  );
+}
+
+function getSeoKeywords(rawProducts: ProductDto[], products: [Product, Product]) {
+  return [
+    ...rawProducts.flatMap((product) => product.seo_metadata?.keywords ?? []),
+    ...rawProducts.map((product) => product.seo_metadata?.primary_keyword),
+    ...products.flatMap((product) => [
+      product.name,
+      product.brand,
+      product.category,
+    ]),
+    "product comparison",
+    "price comparison",
+    "review comparison",
+  ].filter((keyword, index, values): keyword is string => {
+    return Boolean(keyword) && values.indexOf(keyword) === index;
+  });
+}
+
+function buildComparisonSlug(id: number | string, title: string) {
+  const baseSlug = title
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
+
+  return baseSlug ? `${id}-${baseSlug}` : String(id);
 }
 
 function getComparisonProducts(comparison: ProductComparisonDto) {
