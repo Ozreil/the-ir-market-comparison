@@ -118,7 +118,7 @@ function getApiBaseUrl() {
     // return "http://localhost:8080";
   }
 
-  return "https://theirmarkets.com/api";
+  return "http://localhost/api";
 }
 
 function isBrowser() {
