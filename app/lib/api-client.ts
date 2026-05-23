@@ -113,8 +113,8 @@ function getApiBaseUrl() {
   }
 
   if (process.env.NODE_ENV === "production") {
-    return "https://theirmarkets.com/api";
-    // return "http://localhost/api";
+    // return "https://theirmarkets.com/api";
+    return "http://localhost/api";
     // return "http://localhost:8080";
   }
 

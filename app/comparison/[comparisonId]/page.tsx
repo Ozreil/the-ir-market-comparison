@@ -246,8 +246,18 @@ function ComparisonProductPanel({
   sideLabel: string;
 }) {
   return (
-    <article className="border border-black/10 bg-white">
-      <div className="grid min-h-full gap-0 md:grid-cols-[0.9fr_1fr]">
+    <article className="flex min-h-full flex-col border border-black/10 bg-white">
+      <a
+        href={product.amazonUrl}
+        {...amazonLinkAttributes}
+        className="inline-flex min-h-24 w-full items-center justify-center gap-4 border-b border-black/10 bg-[#f2b705] px-6 py-5 text-center text-xl font-extrabold uppercase tracking-[0.16em] text-[#121212] shadow-[0_14px_34px_rgba(18,18,18,0.12)] transition hover:bg-[#121212] hover:text-white focus:outline-none focus:ring-4 focus:ring-inset focus:ring-[#d4af37]/45 sm:text-2xl"
+      >
+        <span>Buy on Amazon</span>
+        <span aria-hidden="true" className="text-3xl leading-none">
+          →
+        </span>
+      </a>
+      <div className="grid flex-1 gap-4 p-4 pt-5 md:grid-cols-[0.9fr_1fr] md:gap-0 md:p-5">
         <div className="relative aspect-[4/5] overflow-hidden bg-[#eeeeeb] md:aspect-auto">
           {product.image ? (
             <AmazonProductImage
@@ -266,7 +276,7 @@ function ComparisonProductPanel({
             {sideLabel}
           </div>
         </div>
-        <div className="flex flex-col p-5 sm:p-6">
+        <div className="flex flex-col md:p-5 lg:p-6">
           <p className="text-xs font-bold uppercase tracking-[0.24em] text-[#8f741f]">
             {product.brand} / {product.category}
           </p>
@@ -297,15 +307,6 @@ function ComparisonProductPanel({
                 {formatNumber(product.reviewCount)} reviews
               </p>
             </div>
-          </div>
-          <div className="mt-auto pt-6">
-            <a
-              href={product.amazonUrl}
-              {...amazonLinkAttributes}
-              className="inline-flex min-h-12 w-full items-center justify-center bg-gold px-5 text-xs font-bold uppercase tracking-[0.2em] text-[#121212] transition hover:bg-[#121212] hover:text-white"
-            >
-              Buy on Amazon
-            </a>
           </div>
         </div>
       </div>
