@@ -53,7 +53,10 @@ export type ProductSeoMetadataDto = {
 
 export type ProductComparisonDto = {
   id: number | string;
+  slug?: string;
+  type?: string;
   products?: ProductDto[];
+  product_pages?: ProductPageDto[];
   left_product?: ProductDto;
   right_product?: ProductDto;
   first_product?: ProductDto;
@@ -62,6 +65,11 @@ export type ProductComparisonDto = {
   product_b?: ProductDto;
   title?: string;
   summary?: string | null;
+};
+
+export type ProductPageDto = {
+  id: number | string;
+  product?: ProductDto;
 };
 
 export const apiClient = axios.create({
@@ -78,10 +86,10 @@ export async function getProductComparisonById(
   comparisonId: number | string,
   config?: AxiosRequestConfig,
 ) {
-  const response = await apiClient.get<ProductComparisonDto>(
-    `/pages/${comparisonId}`,
-    config,
-  );
+  const path = `/pages/${comparisonId}`;
+  const response = await apiClient.get<ProductComparisonDto>(path, config);
+
+  console.log("[getProductComparisonById] response", JSON.stringify(response.data));
 
   return response.data;
 }
@@ -91,7 +99,15 @@ function getApiBaseUrl() {
     return process.env.NEXT_PUBLIC_API_BASE_URL ?? "/api";
   }
 
-  return process.env.API_BASE_URL ?? "http://localhost:8080/api";
+  if (process.env.API_BASE_URL) {
+    return process.env.API_BASE_URL;
+  }
+
+  if (process.env.NODE_ENV === "production") {
+    return "http://localhost:8080";
+  }
+
+  return "https://theirmarkets.com/api";
 }
 
 function isBrowser() {

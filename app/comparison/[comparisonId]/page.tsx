@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import axios from "axios";
 import { notFound } from "next/navigation";
 import { AmazonProductImage } from "../../components/AmazonProductImage";
 import { AmazonProductTitle } from "../../components/AmazonProductTitle";
@@ -115,6 +116,8 @@ export default async function ComparisonPage({
     notFound();
   }
 
+  console.log("comparison ", comparison)
+
   const [leftProduct, rightProduct] = comparison.products;
   const rows = buildAttributeRows(leftProduct, rightProduct);
   const description = getComparisonDescription(comparison);
@@ -191,6 +194,8 @@ function ComparisonProductPanel({
   product: Product;
   sideLabel: string;
 }) {
+
+  console.log("product ", product );
   return (
     <article className="border border-black/10 bg-white">
       <div className="grid min-h-full gap-0 md:grid-cols-[0.9fr_1fr]">
@@ -317,10 +322,27 @@ async function getComparisonData(
     return normalizeComparison(
       await getProductComparisonById(comparisonId),
     );
-  } catch {
-    if (process.env.NODE_ENV === "development") {
+  } catch (error) {
+    if (process.env.NODE_ENV === "development" && comparisonId === "demo") {
       return normalizeComparison(getPreviewComparison(comparisonId), true);
     }
+
+    if (axios.isAxiosError(error)) {
+      console.error("[getComparisonData] failed", {
+        baseURL: error.config?.baseURL,
+        comparisonId,
+        message: error.message,
+        status: error.response?.status,
+        url: error.config?.url,
+      });
+
+      return null;
+    }
+
+    console.error("[getComparisonData] failed", {
+      comparisonId,
+      message: error instanceof Error ? error.message : String(error),
+    });
 
     return null;
   }
@@ -354,6 +376,7 @@ function normalizeComparison(
 function getComparisonProducts(comparison: ProductComparisonDto) {
   return [
     ...(comparison.products ?? []),
+    ...(comparison.product_pages?.map((page) => page.product) ?? []),
     comparison.left_product,
     comparison.right_product,
     comparison.first_product,
