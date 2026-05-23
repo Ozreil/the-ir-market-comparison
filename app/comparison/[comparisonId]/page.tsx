@@ -41,12 +41,54 @@ type AttributeRow = {
   winner?: "left" | "right" | "tie";
 };
 
+type ComparisonFocus = "balanced" | "value" | "ratings" | "details";
+
+const comparisonFocuses: Record<
+  ComparisonFocus,
+  {
+    label: string;
+    eyebrow: string;
+    metadataSuffix?: string;
+    summary: (comparison: ComparisonData) => string;
+  }
+> = {
+  balanced: {
+    eyebrow: "Product comparison",
+    label: "Balanced",
+    summary: (comparison) => comparison.summary ?? comparison.seoDescription,
+  },
+  value: {
+    eyebrow: "Value comparison",
+    label: "Value",
+    metadataSuffix: "Best Value",
+    summary: ({ products }) =>
+      `Compare price, rating, and review volume to see which product gives shoppers the stronger value: ${products[0].name} or ${products[1].name}.`,
+  },
+  ratings: {
+    eyebrow: "Ratings comparison",
+    label: "Ratings",
+    metadataSuffix: "Ratings and Reviews",
+    summary: ({ products }) =>
+      `Compare review count, average rating, and buyer confidence signals for ${products[0].name} and ${products[1].name}.`,
+  },
+  details: {
+    eyebrow: "Details comparison",
+    label: "Details",
+    metadataSuffix: "Product Details",
+    summary: ({ products }) =>
+      `Compare product fit, category, brand context, and everyday-use details before choosing between ${products[0].name} and ${products[1].name}.`,
+  },
+};
+
 export async function generateMetadata({
   params,
+  searchParams,
 }: {
   params: Promise<{ comparisonId: string }>;
+  searchParams?: Promise<{ focus?: string }>;
 }): Promise<Metadata> {
   const { comparisonId } = await params;
+  const focus = getComparisonFocus((await searchParams)?.focus);
   const comparison = await getComparisonData(comparisonId);
 
   if (!comparison) {
@@ -56,10 +98,12 @@ export async function generateMetadata({
   }
 
   const [leftProduct, rightProduct] = comparison.products;
-  const title = comparison.seoTitle;
-  const description = comparison.seoDescription;
+  const focusConfig = comparisonFocuses[focus];
+  const title = getVariantTitle(comparison, focus);
+  const description = truncate(focusConfig.summary(comparison), 156);
   const ogDescription = truncate(description, 200);
-  const comparisonUrl = absoluteUrl(comparison.canonicalPath);
+  const canonicalPath = getVariantPath(comparison, focus);
+  const comparisonUrl = absoluteUrl(canonicalPath);
   const imageProduct = comparison.products.find((product) => product.image);
   const imageUrl = imageProduct?.image
     ? imageProduct.image.startsWith("http")
@@ -71,9 +115,12 @@ export async function generateMetadata({
     title,
     description,
     alternates: {
-      canonical: comparison.canonicalPath,
+      canonical: canonicalPath,
     },
-    keywords: comparison.keywords,
+    keywords:
+      focus === "balanced"
+        ? comparison.keywords
+        : [...comparison.keywords, `${focusConfig.label.toLowerCase()} comparison`],
     openGraph: {
       description: ogDescription,
       images: [
@@ -98,10 +145,13 @@ export async function generateMetadata({
 
 export default async function ComparisonPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ comparisonId: string }>;
+  searchParams?: Promise<{ focus?: string }>;
 }) {
   const { comparisonId } = await params;
+  const focus = getComparisonFocus((await searchParams)?.focus);
   const comparison = await getComparisonData(comparisonId);
 
   if (!comparison) {
@@ -109,12 +159,13 @@ export default async function ComparisonPage({
   }
 
   if (comparison.slug && comparisonId !== comparison.slug) {
-    permanentRedirect(comparison.canonicalPath);
+    permanentRedirect(getVariantPath(comparison, focus));
   }
 
   const [leftProduct, rightProduct] = comparison.products;
-  const rows = buildAttributeRows(leftProduct, rightProduct);
-  const description = comparison.seoDescription;
+  const rows = buildAttributeRows(leftProduct, rightProduct, focus);
+  const focusConfig = comparisonFocuses[focus];
+  const description = truncate(focusConfig.summary(comparison), 156);
 
   return (
     <main className="min-h-screen bg-[#f9f9f9] text-[#121212]">
@@ -123,7 +174,7 @@ export default async function ComparisonPage({
           description,
           products: comparison.products,
           title: comparison.title,
-          url: absoluteUrl(comparison.canonicalPath),
+          url: absoluteUrl(getVariantPath(comparison, focus)),
         })}
       />
       <TopNavBar />
@@ -131,7 +182,7 @@ export default async function ComparisonPage({
       <section className="border-b border-black/10 px-5 py-10 lg:px-8 lg:py-16">
         <div className="mx-auto max-w-7xl">
           <p className="text-xs font-bold uppercase tracking-[0.28em] text-[#8f741f]">
-            Product comparison
+            {focusConfig.eyebrow}
           </p>
           <div className="mt-5 grid gap-6 lg:grid-cols-[minmax(0,0.9fr)_minmax(22rem,0.45fr)] lg:items-end">
             <div>
@@ -139,13 +190,19 @@ export default async function ComparisonPage({
                 {comparison.title}
               </h1>
               <p className="mt-5 max-w-3xl text-base leading-7 text-[#5c574e] sm:text-lg">
-                {comparison.summary ??
-                  "Compare the two products side by side across price, reviews, rating, brand, category, and shopping details."}
+                {focusConfig.summary(comparison)}
               </p>
             </div>
           </div>
+          <ComparisonFocusNav comparison={comparison} activeFocus={focus} />
         </div>
       </section>
+
+      <ComparisonInsightStrip
+        focus={focus}
+        leftProduct={leftProduct}
+        rightProduct={rightProduct}
+      />
 
       <section className="px-5 py-10 lg:px-8 lg:py-16">
         <div className="mx-auto grid max-w-7xl gap-5 lg:grid-cols-2">
@@ -253,6 +310,69 @@ function ComparisonProductPanel({
         </div>
       </div>
     </article>
+  );
+}
+
+function ComparisonFocusNav({
+  activeFocus,
+  comparison,
+}: {
+  activeFocus: ComparisonFocus;
+  comparison: ComparisonData;
+}) {
+  return (
+    <nav
+      aria-label="Comparison focus"
+      className="mt-8 flex flex-wrap gap-2 border-t border-black/10 pt-5"
+    >
+      {(Object.keys(comparisonFocuses) as ComparisonFocus[]).map((focus) => (
+        <a
+          key={focus}
+          href={getVariantPath(comparison, focus)}
+          className={`border px-4 py-2 text-xs font-bold uppercase tracking-[0.18em] transition ${
+            activeFocus === focus
+              ? "border-[#121212] bg-[#121212] text-white"
+              : "border-black/12 bg-white text-[#5c574e] hover:border-gold hover:text-[#121212]"
+          }`}
+        >
+          {comparisonFocuses[focus].label}
+        </a>
+      ))}
+    </nav>
+  );
+}
+
+function ComparisonInsightStrip({
+  focus,
+  leftProduct,
+  rightProduct,
+}: {
+  focus: ComparisonFocus;
+  leftProduct: Product;
+  rightProduct: Product;
+}) {
+  if (focus === "balanced") {
+    return null;
+  }
+
+  const insights = getFocusInsights(focus, leftProduct, rightProduct);
+
+  return (
+    <section className="border-b border-black/10 bg-[#121212] px-5 py-8 text-white lg:px-8">
+      <div className="mx-auto grid max-w-7xl gap-4 md:grid-cols-3">
+        {insights.map((insight) => (
+          <div key={insight.label} className="border border-white/12 p-5">
+            <p className="text-xs font-bold uppercase tracking-[0.2em] text-gold">
+              {insight.label}
+            </p>
+            <p className="mt-3 text-2xl font-semibold">{insight.value}</p>
+            <p className="mt-2 text-sm leading-6 text-white/62">
+              {insight.detail}
+            </p>
+          </div>
+        ))}
+      </div>
+    </section>
   );
 }
 
@@ -427,6 +547,101 @@ function buildComparisonSlug(id: number | string, title: string) {
   return baseSlug ? `${id}-${baseSlug}` : String(id);
 }
 
+function getComparisonFocus(value?: string): ComparisonFocus {
+  if (
+    value === "value" ||
+    value === "ratings" ||
+    value === "details" ||
+    value === "balanced"
+  ) {
+    return value;
+  }
+
+  return "balanced";
+}
+
+function getVariantPath(comparison: ComparisonData, focus: ComparisonFocus) {
+  const path = comparison.canonicalPath;
+
+  return focus === "balanced" ? path : `${path}?focus=${focus}`;
+}
+
+function getVariantTitle(comparison: ComparisonData, focus: ComparisonFocus) {
+  const suffix = comparisonFocuses[focus].metadataSuffix;
+
+  return suffix ? `${comparison.seoTitle} | ${suffix}` : comparison.seoTitle;
+}
+
+function getFocusInsights(
+  focus: ComparisonFocus,
+  left: Product,
+  right: Product,
+) {
+  const cheaperProduct = left.price <= right.price ? left : right;
+  const higherRatedProduct = left.rating >= right.rating ? left : right;
+  const moreReviewedProduct =
+    left.reviewCount >= right.reviewCount ? left : right;
+  const priceDifference = Math.abs(left.price - right.price);
+
+  if (focus === "value") {
+    return [
+      {
+        detail: `${cheaperProduct.name} has the lower listed price in this comparison.`,
+        label: "Lower price",
+        value: formatCurrency(cheaperProduct.price),
+      },
+      {
+        detail: `The price gap between both products is ${formatCurrency(priceDifference)}.`,
+        label: "Price gap",
+        value: formatCurrency(priceDifference),
+      },
+      {
+        detail: `${higherRatedProduct.name} has the stronger average rating.`,
+        label: "Rating edge",
+        value: `${formatDecimal(higherRatedProduct.rating)} / 5`,
+      },
+    ];
+  }
+
+  if (focus === "ratings") {
+    return [
+      {
+        detail: `${higherRatedProduct.name} currently leads on average rating.`,
+        label: "Top rating",
+        value: `${formatDecimal(higherRatedProduct.rating)} / 5`,
+      },
+      {
+        detail: `${moreReviewedProduct.name} has the larger review sample.`,
+        label: "Most reviewed",
+        value: formatNumber(moreReviewedProduct.reviewCount),
+      },
+      {
+        detail: `Together, these products represent ${formatNumber(left.reviewCount + right.reviewCount)} reviews.`,
+        label: "Review pool",
+        value: formatNumber(left.reviewCount + right.reviewCount),
+      },
+    ];
+  }
+
+  return [
+    {
+      detail: `${left.name} is listed under ${left.category}.`,
+      label: "Option A fit",
+      value: left.category,
+    },
+    {
+      detail: `${right.name} is listed under ${right.category}.`,
+      label: "Option B fit",
+      value: right.category,
+    },
+    {
+      detail: "Use this view when the buying decision depends more on use case than headline price.",
+      label: "Decision lens",
+      value: "Product fit",
+    },
+  ];
+}
+
 function getComparisonProducts(comparison: ProductComparisonDto) {
   return [
     ...(comparison.products ?? []),
@@ -440,43 +655,69 @@ function getComparisonProducts(comparison: ProductComparisonDto) {
   ].filter((product): product is ProductDto => Boolean(product));
 }
 
-function buildAttributeRows(left: Product, right: Product): AttributeRow[] {
-  return [
-    {
-      label: "Price",
-      left: formatCurrency(left.price),
-      right: formatCurrency(right.price),
-      winner: compareLowerIsBetter(left.price, right.price),
-    },
-    {
-      label: "Rating",
-      left: `${formatDecimal(left.rating)} out of 5`,
-      right: `${formatDecimal(right.rating)} out of 5`,
-      winner: compareHigherIsBetter(left.rating, right.rating),
-    },
-    {
-      label: "Reviews",
-      left: formatNumber(left.reviewCount),
-      right: formatNumber(right.reviewCount),
-      winner: compareHigherIsBetter(left.reviewCount, right.reviewCount),
-    },
-    // {
-    //   label: "Brand",
-    //   left: left.brand,
-    //   right: right.brand,
-    // },
-    // {
-    //   label: "Category",
-    //   left: left.category,
-    //   right: right.category,
-    // },
+function buildAttributeRows(
+  left: Product,
+  right: Product,
+  focus: ComparisonFocus,
+): AttributeRow[] {
+  const priceRow: AttributeRow = {
+    label: "Price",
+    left: formatCurrency(left.price),
+    right: formatCurrency(right.price),
+    winner: compareLowerIsBetter(left.price, right.price),
+  };
+  const ratingRow: AttributeRow = {
+    label: "Rating",
+    left: `${formatDecimal(left.rating)} out of 5`,
+    right: `${formatDecimal(right.rating)} out of 5`,
+    winner: compareHigherIsBetter(left.rating, right.rating),
+  };
+  const reviewsRow: AttributeRow = {
+    label: "Reviews",
+    left: formatNumber(left.reviewCount),
+    right: formatNumber(right.reviewCount),
+    winner: compareHigherIsBetter(left.reviewCount, right.reviewCount),
+  };
+  const detailsRows: AttributeRow[] = [
     {
       label: "Best for",
       left: left.summary || left.curatorTake || "Product details coming soon.",
       right:
         right.summary || right.curatorTake || "Product details coming soon.",
     },
+    {
+      label: "Brand",
+      left: left.brand,
+      right: right.brand,
+    },
+    {
+      label: "Category",
+      left: left.category,
+      right: right.category,
+    },
   ];
+  const valueRows: AttributeRow[] = [
+    {
+      label: "Value read",
+      left: `${formatCurrency(left.price)} with ${formatDecimal(left.rating)} rating`,
+      right: `${formatCurrency(right.price)} with ${formatDecimal(right.rating)} rating`,
+      winner: getValueWinner(left, right),
+    },
+  ];
+
+  if (focus === "value") {
+    return [priceRow, ...valueRows, ratingRow, reviewsRow, detailsRows[0]];
+  }
+
+  if (focus === "ratings") {
+    return [ratingRow, reviewsRow, priceRow, detailsRows[0]];
+  }
+
+  if (focus === "details") {
+    return [...detailsRows, priceRow, ratingRow, reviewsRow];
+  }
+
+  return [priceRow, ratingRow, reviewsRow, detailsRows[0]];
 }
 
 function compareLowerIsBetter(left: number, right: number) {
@@ -493,6 +734,17 @@ function compareHigherIsBetter(left: number, right: number) {
   }
 
   return left > right ? "left" : "right";
+}
+
+function getValueWinner(left: Product, right: Product) {
+  const leftScore = left.rating / Math.max(left.price, 1);
+  const rightScore = right.rating / Math.max(right.price, 1);
+
+  if (leftScore === rightScore) {
+    return "tie";
+  }
+
+  return leftScore > rightScore ? "left" : "right";
 }
 
 function formatCurrency(value: number) {
