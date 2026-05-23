@@ -406,16 +406,16 @@ function buildAttributeRows(left: Product, right: Product): AttributeRow[] {
       right: formatNumber(right.reviewCount),
       winner: compareHigherIsBetter(left.reviewCount, right.reviewCount),
     },
-    {
-      label: "Brand",
-      left: left.brand,
-      right: right.brand,
-    },
-    {
-      label: "Category",
-      left: left.category,
-      right: right.category,
-    },
+    // {
+    //   label: "Brand",
+    //   left: left.brand,
+    //   right: right.brand,
+    // },
+    // {
+    //   label: "Category",
+    //   left: left.category,
+    //   right: right.category,
+    // },
     {
       label: "Best for",
       left: left.summary || left.curatorTake || "Product details coming soon.",

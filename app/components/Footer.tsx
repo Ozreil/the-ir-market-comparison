@@ -13,7 +13,7 @@ export function Footer() {
             Legal
           </h2>
           <p className="mt-5 text-sm leading-7 text-white/64">
-            Their Market Luxury may earn a commission from qualifying purchases
+            Their Market may earn a commission from qualifying purchases
             made through affiliate partner links. Prices and availability may
             change after publication.
           </p>
