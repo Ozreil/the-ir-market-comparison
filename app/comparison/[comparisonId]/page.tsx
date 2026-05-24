@@ -186,7 +186,7 @@ export default async function ComparisonPage({
           </p>
           <div className="mt-5 grid gap-6 lg:grid-cols-[minmax(0,0.9fr)_minmax(22rem,0.45fr)] lg:items-end">
             <div>
-              <h1 className="font-serif text-4xl leading-none tracking-[-0.03em] sm:text-6xl">
+              <h1 className="font-serif text-lg leading-none tracking-[-0.03em] sm:text-xl">
                 {comparison.title}
               </h1>
               <p className="mt-5 max-w-3xl text-base leading-7 text-[#5c574e] sm:text-lg">
@@ -265,7 +265,7 @@ function ComparisonProductPanel({
               fallbackSrc={product.image}
               alt={product.name}
               sizes="(min-width: 1024px) 25vw, 100vw"
-              className="object-cover"
+              className="object-contain"
             />
           ) : (
             <div className="grid h-full min-h-80 place-items-center px-6 text-center text-xs font-bold uppercase tracking-[0.2em] text-[#7c735f]">
