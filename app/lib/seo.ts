@@ -6,9 +6,10 @@ export const siteUrl =
 export const siteName = "Their Markets";
 
 export const defaultDescription =
-  "Their Markets comparison pages help shoppers compare two affiliate products side by side across price, reviews, rating, brand, category, and buying details.";
+  "Their Markets is a curated affiliate shopping market for products from trusted partner companies, home essentials, electronics, kitchen finds, and gift ideas.";
 
-export const homeTitle = "Their Markets | Product Comparisons";
+export const homeTitle =
+  "Their Markets | Curated Affiliate Shopping From Partner Companies";
 
 export function absoluteUrl(path: string) {
   const normalizedPath = path.startsWith("/") ? path : `/${path}`;
@@ -117,7 +118,8 @@ export function websiteJsonLd() {
     name: siteName,
     potentialAction: {
       "@type": "SearchAction",
-      target: absoluteUrl("/"),
+      query: "required name=search_term_string",
+      target: `${absoluteUrl("/category")}?query={search_term_string}`,
     },
     url: siteUrl,
   };

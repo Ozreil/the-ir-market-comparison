@@ -43,18 +43,29 @@ export type ProductImageDto = {
 };
 
 export type ProductSeoMetadataDto = {
-  meta_title?: string;
-  meta_description?: string;
-  og_title?: string;
-  og_description?: string;
-  primary_keyword?: string;
-  keywords?: string[];
+  buyer_intent_long_tail_keywords?: string[] | null;
+  comparison_angle?: string | null;
+  content_notes?: string | null;
+  faq_schemas?: unknown;
+  h1?: string | null;
+  keywords?: string[] | null;
+  meta_description?: string | null;
+  meta_title?: string | null;
+  og_description?: string | null;
+  og_title?: string | null;
+  primary_keyword?: string | null;
+  slug?: string | null;
+  structured_data?: unknown;
+  twitter_description?: string | null;
+  twitter_title?: string | null;
 };
 
 export type ProductComparisonDto = {
+  brief_intro?: string | null;
   id: number | string;
-  slug?: string;
-  type?: string;
+  seo_metadata?: ProductSeoMetadataDto | null;
+  slug?: string | null;
+  type?: string | null;
   products?: ProductDto[];
   product_pages?: ProductPageDto[];
   left_product?: ProductDto;
@@ -63,7 +74,7 @@ export type ProductComparisonDto = {
   second_product?: ProductDto;
   product_a?: ProductDto;
   product_b?: ProductDto;
-  title?: string;
+  title?: string | null;
   summary?: string | null;
 };
 
@@ -143,6 +154,12 @@ export async function getProductComparisonById(
   }
 }
 
+export async function getAllCategories(config?: AxiosRequestConfig) {
+  const response = await apiClient.get<CategoryDto[]>("/categories", config);
+
+  return response.data;
+}
+
 function getComparisonApiId(comparisonId: number | string) {
   const value = String(comparisonId);
   const leadingNumericId = value.match(/^\d+/)?.[0];
@@ -151,21 +168,6 @@ function getComparisonApiId(comparisonId: number | string) {
 }
 
 function getApiBaseUrl() {
-  // if (isBrowser()) {
-  //   return "https://theirmarkets.com/api";
-  //   // return "http://localhost/api";
-  //   // return process.env.NEXT_PUBLIC_API_BASE_URL ?? "/api";
-  // }
-
-  // if (process.env.API_BASE_URL) {
-  //   return process.env.API_BASE_URL;
-  // }
-
-  // if (process.env.NODE_ENV === "production") {
-  //   // return "https://theirmarkets.com/api";
-  //   return "http://localhost/api";
-  //   // return "http://localhost:8080";
-  // }
-
-  return "http://nginx/api";
+  return "https://theirmarkets.com/api";
+  // return "http://nginx/api";
 }

@@ -25,10 +25,15 @@ type ComparisonData = {
   id: number | string;
   canonicalPath: string;
   keywords: string[];
+  openGraphDescription: string;
+  openGraphTitle: string;
   seoDescription: string;
   seoTitle: string;
   slug?: string;
+  structuredData: object[];
   title: string;
+  twitterDescription: string;
+  twitterTitle: string;
   summary?: string | null;
   products: [Product, Product];
   isPreview?: boolean;
@@ -100,8 +105,22 @@ export async function generateMetadata({
   const [leftProduct, rightProduct] = comparison.products;
   const focusConfig = comparisonFocuses[focus];
   const title = getVariantTitle(comparison, focus);
-  const description = truncate(focusConfig.summary(comparison), 156);
-  const ogDescription = truncate(description, 200);
+  const description =
+    focus === "balanced"
+      ? comparison.seoDescription
+      : truncate(focusConfig.summary(comparison), 156);
+  const ogDescription = truncate(
+    focus === "balanced" ? comparison.openGraphDescription : description,
+    200,
+  );
+  const ogTitle =
+    focus === "balanced"
+      ? comparison.openGraphTitle
+      : getVariantTitle(comparison, focus);
+  const twitterDescription =
+    focus === "balanced" ? comparison.twitterDescription : description;
+  const twitterTitle =
+    focus === "balanced" ? comparison.twitterTitle : getVariantTitle(comparison, focus);
   const canonicalPath = getVariantPath(comparison, focus);
   const comparisonUrl = absoluteUrl(canonicalPath);
   const imageProduct = comparison.products.find((product) => product.image);
@@ -130,15 +149,15 @@ export async function generateMetadata({
         },
       ],
       siteName,
-      title,
+      title: ogTitle,
       type: "website",
       url: comparisonUrl,
     },
     twitter: {
       card: "summary_large_image",
-      description: ogDescription,
+      description: twitterDescription,
       images: [imageUrl],
-      title,
+      title: twitterTitle,
     },
   };
 }
@@ -177,6 +196,9 @@ export default async function ComparisonPage({
           url: absoluteUrl(getVariantPath(comparison, focus)),
         })}
       />
+      {comparison.structuredData.map((data, index) => (
+        <JsonLd key={index} data={data} />
+      ))}
       <TopNavBar />
 
       <section className="border-b border-black/10 px-5 py-10 lg:px-8 lg:py-16">
@@ -468,28 +490,45 @@ function normalizeComparison(
     .map(productDtoToDisplayProduct) as [Product, Product];
   const [leftProduct] = products;
   const [leftDisplayProduct, rightDisplayProduct] = displayProducts;
+  const pageSeo = comparison.seo_metadata;
   const title =
+    pageSeo?.h1 ??
     comparison.title ??
     `${leftDisplayProduct.name} vs. ${rightDisplayProduct.name}`;
-  const seoTitle = `${getProductSeoTitle(leftProduct, leftDisplayProduct)} vs. ${getProductSeoTitle(products[1], rightDisplayProduct)}`;
+  const productSeoTitle = `${getProductSeoTitle(leftProduct, leftDisplayProduct)} vs. ${getProductSeoTitle(products[1], rightDisplayProduct)}`;
+  const seoTitle = pageSeo?.meta_title ?? pageSeo?.og_title ?? productSeoTitle;
   const seoDescription = getSeoDescription({
     comparison,
     leftProduct,
     products: displayProducts,
   });
-  const slug = comparison.slug ?? (isPreview ? String(comparison.id) : buildComparisonSlug(comparison.id, title));
+  const openGraphDescription =
+    pageSeo?.og_description ?? pageSeo?.meta_description ?? seoDescription;
+  const openGraphTitle = pageSeo?.og_title ?? pageSeo?.meta_title ?? seoTitle;
+  const twitterDescription =
+    pageSeo?.twitter_description ?? openGraphDescription;
+  const twitterTitle = pageSeo?.twitter_title ?? openGraphTitle;
+  const slug =
+    pageSeo?.slug ??
+    comparison.slug ??
+    (isPreview ? String(comparison.id) : buildComparisonSlug(comparison.id, title));
 
   return {
     canonicalPath: `/comparison/${slug}`,
     id: comparison.id,
     isPreview,
-    keywords: getSeoKeywords(products, displayProducts),
+    keywords: getSeoKeywords(comparison, products, displayProducts),
+    openGraphDescription,
+    openGraphTitle,
     products: displayProducts,
     seoDescription,
     seoTitle,
     slug,
-    summary: comparison.summary ?? seoDescription,
+    structuredData: getStructuredData(comparison),
+    summary: comparison.brief_intro ?? comparison.summary ?? seoDescription,
     title,
+    twitterDescription,
+    twitterTitle,
   };
 }
 
@@ -510,8 +549,13 @@ function getSeoDescription({
   leftProduct: ProductDto;
   products: [Product, Product];
 }) {
+  const pageSeo = comparison.seo_metadata;
+
   return truncate(
-    comparison.summary ??
+    pageSeo?.meta_description ??
+      pageSeo?.og_description ??
+      comparison.brief_intro ??
+      comparison.summary ??
       `Compare ${products[0].name} and ${products[1].name}. ${
         leftProduct.seo_metadata?.meta_description ??
         leftProduct.seo_metadata?.og_description ??
@@ -521,9 +565,21 @@ function getSeoDescription({
   );
 }
 
-function getSeoKeywords(rawProducts: ProductDto[], products: [Product, Product]) {
+function getSeoKeywords(
+  comparison: ProductComparisonDto,
+  rawProducts: ProductDto[],
+  products: [Product, Product],
+) {
+  const pageSeo = comparison.seo_metadata;
+
   return [
+    ...(pageSeo?.keywords ?? []),
+    ...(pageSeo?.buyer_intent_long_tail_keywords ?? []),
+    pageSeo?.primary_keyword,
     ...rawProducts.flatMap((product) => product.seo_metadata?.keywords ?? []),
+    ...rawProducts.flatMap(
+      (product) => product.seo_metadata?.buyer_intent_long_tail_keywords ?? [],
+    ),
     ...rawProducts.map((product) => product.seo_metadata?.primary_keyword),
     ...products.flatMap((product) => [
       product.name,
@@ -536,6 +592,37 @@ function getSeoKeywords(rawProducts: ProductDto[], products: [Product, Product])
   ].filter((keyword, index, values): keyword is string => {
     return Boolean(keyword) && values.indexOf(keyword) === index;
   });
+}
+
+function getStructuredData(comparison: ProductComparisonDto) {
+  return [
+    ...toJsonLdObjects(comparison.seo_metadata?.structured_data),
+    ...toJsonLdObjects(comparison.seo_metadata?.faq_schemas),
+  ];
+}
+
+function toJsonLdObjects(value: unknown): object[] {
+  if (!value) {
+    return [];
+  }
+
+  if (Array.isArray(value)) {
+    return value.filter(isJsonLdObject);
+  }
+
+  if (typeof value === "string") {
+    try {
+      return toJsonLdObjects(JSON.parse(value));
+    } catch {
+      return [];
+    }
+  }
+
+  return isJsonLdObject(value) ? [value] : [];
+}
+
+function isJsonLdObject(value: unknown): value is object {
+  return Boolean(value) && typeof value === "object";
 }
 
 function buildComparisonSlug(id: number | string, title: string) {
