@@ -110,7 +110,7 @@ export async function TopNavBar({
           </details>
         </div>
 
-        <form
+        {/* <form
           action="/category"
           className="grid grid-cols-[minmax(0,1fr)_auto] gap-2 sm:grid-cols-[minmax(0,1fr)_160px_auto] lg:grid-cols-[minmax(360px,1fr)_170px_auto]"
         >
@@ -151,7 +151,7 @@ export async function TopNavBar({
           <button className="h-12 bg-gold px-6 text-xs font-bold uppercase tracking-[0.2em] text-[#121212] transition hover:bg-white">
             Search
           </button>
-        </form>
+        </form> */}
       </nav>
     </header>
   );
