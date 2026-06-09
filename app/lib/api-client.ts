@@ -168,6 +168,6 @@ function getComparisonApiId(comparisonId: number | string) {
 }
 
 function getApiBaseUrl() {
-  return "https://theirmarkets.com/api";
-  // return "http://nginx/api";
+  // return "https://theirmarkets.com/api";
+  return "http://nginx/api";
 }
