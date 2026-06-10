@@ -508,10 +508,12 @@ function normalizeComparison(
   const twitterDescription =
     pageSeo?.twitter_description ?? openGraphDescription;
   const twitterTitle = pageSeo?.twitter_title ?? openGraphTitle;
-  const slug =
+  const slug = normalizeComparisonSlug(
+    comparison.id,
     pageSeo?.slug ??
-    comparison.slug ??
-    (isPreview ? String(comparison.id) : buildComparisonSlug(comparison.id, title));
+      comparison.slug ??
+      (isPreview ? String(comparison.id) : buildComparisonSlug(comparison.id, title)),
+  );
 
   return {
     canonicalPath: `/comparison/${slug}`,
@@ -623,6 +625,19 @@ function toJsonLdObjects(value: unknown): object[] {
 
 function isJsonLdObject(value: unknown): value is object {
   return Boolean(value) && typeof value === "object";
+}
+
+function normalizeComparisonSlug(id: number | string, slug: string) {
+  const normalizedSlug = slug.trim().replace(/^\/+|\/+$/g, "");
+  const idPrefix = String(id);
+
+  if (!normalizedSlug || normalizedSlug === idPrefix) {
+    return idPrefix;
+  }
+
+  return normalizedSlug.startsWith(`${idPrefix}-`)
+    ? normalizedSlug
+    : `${idPrefix}-${normalizedSlug}`;
 }
 
 function buildComparisonSlug(id: number | string, title: string) {
